@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # Relational Database service (Postgres for production)
+  db:
+    image: postgres:15-alpine
+    container_name: finsight_db
+    restart: always
+    environment:
+      POSTGRES_USER: finsight_user
+      POSTGRES_PASSWORD: finsight_password
+      POSTGRES_DB: finsight_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finsight_user -d finsight_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend service
+  backend:
+    build: ./backend
+    container_name: finsight_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://finsight_user:finsight_password@db:5432/finsight_db
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - AI_PROVIDER=groq
+      - JWT_SECRET=${JWT_SECRET:-supersecretjwtkeyforfinsightai1234567890}
+      - CHROMA_PATH=/app/chroma_db
+      - ALLOWED_ORIGINS=http://localhost,http://localhost:80,http://localhost:5173
+    volumes:
+      - chroma_data:/app/chroma_db
+      - upload_data:/app/uploaded_documents
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # React Vite Frontend service served by Nginx
+  frontend:
+    build: ./frontend
+    container_name: finsight_frontend
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  chroma_data:
+  upload_data:
