@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from app.database.session import get_db
@@ -45,7 +46,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if email is None:
         raise credentials_exception
         
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(func.lower(User.email) == email.lower()).first()
     if user is None:
         raise credentials_exception
     return user
@@ -53,7 +54,8 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
 @router.post("/register", response_model=UserResponseSchema)
 def register(user_data: UserAuthSchema, db: Session = Depends(get_db)):
     # Check if user already exists
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    email_lower = user_data.email.lower()
+    existing_user = db.query(User).filter(func.lower(User.email) == email_lower).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,7 +64,7 @@ def register(user_data: UserAuthSchema, db: Session = Depends(get_db)):
     
     # Hash password and save user
     password_hash = get_password_hash(user_data.password)
-    db_user = User(email=user_data.email, password_hash=password_hash)
+    db_user = User(email=email_lower, password_hash=password_hash)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -70,7 +72,8 @@ def register(user_data: UserAuthSchema, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=TokenSchema)
 def login(user_data: UserAuthSchema, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == user_data.email).first()
+    email_lower = user_data.email.lower()
+    user = db.query(User).filter(func.lower(User.email) == email_lower).first()
     if not user or not verify_password(user_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -90,7 +93,8 @@ def login(user_data: UserAuthSchema, db: Session = Depends(get_db)):
 from fastapi.security import OAuth2PasswordRequestForm
 @router.post("/login-form", response_model=TokenSchema, include_in_schema=False)
 def login_form(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).first()
+    username_lower = form_data.username.lower()
+    user = db.query(User).filter(func.lower(User.email) == username_lower).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
