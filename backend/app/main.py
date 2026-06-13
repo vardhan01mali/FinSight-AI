@@ -65,6 +65,8 @@ app.include_router(auth_router, prefix="/api")
 
 @app.on_event("startup")
 def startup_event():
+    logger.info(f"Loaded ALLOWED_ORIGINS: {settings.ALLOWED_ORIGINS}")
+    logger.info(f"Parsed Origins: {settings.parsed_origins}")
     logger.info("Initializing database tables...")
     Base.metadata.create_all(bind=engine)
     

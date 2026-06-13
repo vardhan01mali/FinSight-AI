@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     def parsed_origins(self) -> List[str]:
         if not self.ALLOWED_ORIGINS:
             return []
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        # Strip any accidental single/double quotes around origins
+        return [origin.strip().strip("'\"") for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
 
 settings = Settings()
