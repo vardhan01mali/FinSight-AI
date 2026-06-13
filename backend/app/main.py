@@ -75,13 +75,20 @@ def startup_event():
             
     logger.info("Database tables verified.")
     
-    logger.info("Pre-loading SentenceTransformer model...")
-    try:
-        from app.rag.embeddings import embeddings_manager
-        embeddings_manager.initialize()
-        logger.info("SentenceTransformer model pre-loaded successfully.")
-    except Exception as e:
-        logger.error(f"Failed to pre-load SentenceTransformer model: {e}")
+    if not os.environ.get("RENDER"):
+        logger.info("Pre-loading SentenceTransformer model...")
+        try:
+            from app.rag.embeddings import embeddings_manager
+            embeddings_manager.initialize()
+            logger.info("SentenceTransformer model pre-loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to pre-load SentenceTransformer model: {e}")
+    else:
+        logger.info("Render environment detected. Skipping eager SentenceTransformer loading to conserve memory.")
+        # Configure CPU threading limits for PyTorch to reduce memory overhead
+        os.environ["OMP_NUM_THREADS"] = "1"
+        os.environ["MKL_NUM_THREADS"] = "1"
+        os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 # Simple custom rate limiter for chat: 15 queries per minute per user
 CHAT_LIMIT_QUERIES = 15
